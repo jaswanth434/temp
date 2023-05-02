@@ -1,6 +1,6 @@
 import sys
 import rospy
-
+from std_msgs.msg import String
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
                              QHBoxLayout, QWidget, QComboBox, QLabel)
@@ -11,7 +11,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         rospy.init_node('customer_selection_publisher')  # Initialize the rospy node
         self.publisher = rospy.Publisher('/customer/selection', tableMenuSelection, queue_size=10)  # Create a publisher for the "/customer/selection" topic
-
+        self.event_subscriber = rospy.Subscriber('/robowaiter/events', String, self.event_callback)
 
         self.setWindowTitle("SDR Robo restaurent")
         self.setMinimumSize(QSize(600, 400))  # Set a minimum size for the main window
@@ -19,6 +19,10 @@ class MainWindow(QMainWindow):
         # Create the central widget and set the layout
         central_widget = QWidget()
         layout = QVBoxLayout()
+
+        # Create a QLabel to display the event messages
+        self.event_label = QLabel()
+        layout.addWidget(self.event_label)
 
         # Create a horizontal layout for the table buttons
         button_layout = QHBoxLayout()
@@ -68,6 +72,10 @@ class MainWindow(QMainWindow):
 
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
+
+    # Callback function for the "/robowaiter/events" subscriber
+    def event_callback(self, msg):
+        self.event_label.setText(msg.data)
 
     def show_dropdown1(self):
         self.table1_dropdown.setVisible(True)

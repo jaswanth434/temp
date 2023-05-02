@@ -4,11 +4,13 @@ import rospy
 import time
 from homework_four.msg import tableMenuSelection
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from tf.transformations import quaternion_from_euler
 import actionlib
 
 global client
+global robotEvents
 # Define the coordinates for the home station, chefs, and tables
 locations = {
     #   x: -1.3487775325775146
@@ -35,19 +37,20 @@ def customer_selection_callback(msg):
     table_location = f'table{msg.table}'
 
     # Move to the selected chef
-    move_to_location(chef_location)
+    move_to_location(chef_location,msg.table)
     rospy.sleep(10)  # Wait for 10 seconds
 
     # Move to the selected table
-    move_to_location(table_location)
+    move_to_location(table_location,msg.table)
     rospy.sleep(10)  # Wait for 10 seconds
 
     # Move back to the home station
-    move_to_location('home')
+    move_to_location('home',msg.table)
 
 
-def move_to_location(location_name):
+def move_to_location(location_name, tableServing):
     global client
+    global robotEvents
     goal = MoveBaseGoal()
     goal.target_pose.header.frame_id = "map"  # Assuming the map frame is "map"
     goal.target_pose.header.stamp = rospy.Time.now()
@@ -66,18 +69,27 @@ def move_to_location(location_name):
 
 
     client.send_goal(goal)
-    rospy.loginfo(f"Moving to {location_name}")
+    eventMessage = "Servicing Table "+str(tableServing)+" : Moving to "+location_name
+    rospy.loginfo(eventMessage)
+    robotEvents.publish(eventMessage)
 
     # Wait for the robot to reach the location or timeout after 60 seconds
     if client.wait_for_result(rospy.Duration(60)):
-        rospy.loginfo(f"Robot reached {location_name}")
+        # rospy.loginfo(f"Robot reached {location_name}")
+        eventMessage = "Servicing Table "+str(tableServing)+" : Robot reached "+str(location_name)
+        rospy.loginfo(eventMessage)
+        robotEvents.publish(eventMessage)
     else:
-        rospy.logwarn(f"Failed to reach {location_name} within the timeout")
+        # rospy.logwarn(f"Failed to reach {location_name} within the timeout")
+        eventMessage = "Servicing Table "+str(tableServing)+": Failed to reach "+location_name+"within the specified time "
+        rospy.logwarn(eventMessage)
+        robotEvents.publish(eventMessage)
 
 
 if __name__ == "__main__":
     rospy.init_node("turtlebot_navigation")
 
+    robotEvents = rospy.Publisher('/robowaiter/events', String, queue_size=10)  
     client = actionlib.SimpleActionClient("move_base", MoveBaseAction)
     rospy.loginfo("Waiting for move_base action server...")
     client.wait_for_server()
